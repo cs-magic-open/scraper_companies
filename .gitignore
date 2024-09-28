@@ -1,0 +1,9 @@
+openapi.json
+
+**/.generated
+.wechaty
+.driver
+.env
+
+**/.idea/
+**/__pycache__/
