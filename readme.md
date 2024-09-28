@@ -2,7 +2,11 @@
 
 ## Usage
 
-见 [config.yaml](config.yaml)
+测试网址：https://www.qcc.com/firm/85d0292125761b813b2408a8138f51ca.html
+
+配置： [config.yaml](config.yaml)
+
+运行：`python main.py`
 
 ## 反爬虫注意
 
