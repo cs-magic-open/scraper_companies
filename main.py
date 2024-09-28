@@ -88,7 +88,22 @@ if __name__ == '__main__':
     logging.info({"companies": companies, "keys": keys})
 
     chrome_options = Options()
+
+    # 除了在仓库本地新建用户目录之外
+    # 也可以访问 chrome://version
+    # 然后检查「个人资料路径」
+    # 以我的为例：/Users/mark/Library/Application Support/Google/Chrome/Default
+    # 最后的 Default 就是 profile 选项，前面部分是 user-data-dir
+    # 使用这个路径可以复用各种插件之类
+    # todo:更进一步深入研究
     chrome_options.add_argument(f"user-data-dir=out/chrome-user-data-dir")
+
+    # 之所以不直接使用浏览器自带的 profile
+    # 是因为 **Selenium 始终会创建一份临时拷贝的账户资料**
+    # 导致无法持久化，从而每次都需要重新登录。
+    # todo:更进一步深入研究
+    # ---
+    # 与其强行复用用户数据，不如直接创建一个干净的新的，专门用于自动化
     chrome_options.add_argument("profile-directory=Automation")
 
     driver = webdriver.Chrome(options=chrome_options)
