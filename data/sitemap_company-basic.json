@@ -1,0 +1,48 @@
+{
+  "_id": "company-basic",
+  "startUrl": [
+    "https://www.qcc.com/firm/85d0292125761b813b2408a8138f51ca.html"
+  ],
+  "selectors": [
+    {
+      "id": "公司名",
+      "parentSelectors": [
+        "_root"
+      ],
+      "type": "SelectorText",
+      "selector": "h1",
+      "multiple": false,
+      "regex": ""
+    },
+    {
+      "id": "公司法人",
+      "parentSelectors": [
+        "_root"
+      ],
+      "type": "SelectorLink",
+      "selector": ".partner a",
+      "multiple": false,
+      "linkType": "linkFromHref"
+    },
+    {
+      "id": "注册资本",
+      "parentSelectors": [
+        "_root"
+      ],
+      "type": "SelectorText",
+      "selector": ".cominfo-normal tr:nth-of-type(3) td:nth-of-type(2)",
+      "multiple": false,
+      "regex": ""
+    },
+    {
+      "id": "公司简介",
+      "parentSelectors": [
+        "_root"
+      ],
+      "type": "SelectorText",
+      "selector": ".break-word span.copy-value",
+      "multiple": false,
+      "regex": ""
+    }
+  ]
+}
