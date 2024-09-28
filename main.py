@@ -1,22 +1,13 @@
 import logging
+import pathlib
 import time
 
+import yaml
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-
-# 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-chrome_options = Options()
-chrome_options.add_argument(f"user-data-dir=out/chrome-user-data-dir")
-chrome_options.add_argument("profile-directory=Automation")
-
-driver = webdriver.Chrome(options=chrome_options)
-# 任意初始化一家公司网站
-driver.get('https://www.qcc.com/firm/85d0292125761b813b2408a8138f51ca.html')
 
 
 def is_document_idle():
@@ -38,22 +29,15 @@ def find_next_td_content(text_a):
         return next_td.text
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
         return None
 
 
 def parse_company(driver):
-    keys = ['统一社会信用代码', '企业名称 ', '法定代表人 ', '登记状态 ', '注册资本 ', '成立日期	', '实缴资本 ',
-            '组织机构代码 ', '工商注册号 ', '纳税人识别号 ', '企业类型	', '营业期限 ', '纳税人资质 ', '人员规模	',
-            '参保人数	', '核准日期 ', '所属地区	', '登记机关 ', '国标行业 ', '英文名	', '注册地址 ',
-            '经营范围 ']
-    keys = [key.strip() for key in keys]
-
     values = [find_next_td_content(key) for key in keys]
-
     table_dict = dict(zip(keys, values))
     result = {"url": driver.current_url, **table_dict}
-    print(result)
+    logging.info(result)
     return result
 
 
@@ -65,7 +49,6 @@ def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
         time.sleep(wait_input)
         search_input.clear()
         time.sleep(wait_input)
-        print({text_a})
         search_input.send_keys(text_a)
         # search_input.send_keys(Keys.RETURN) # 不需要回车，自动等待候选
 
@@ -91,19 +74,29 @@ def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
         first_result.click()
         logging.info("已点击第一个搜索结果")
     except Exception as e:
-        print(type(e))
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}")
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    for company_name in ('阿里',
-                         '腾讯', '百度在线',  # 直接输入百度会跳到企查查，得百度在线
-                         '抖音',  # 字节跳动更名了
-                         '百川智能',  # 直接百川会搜到其他公司
-                         '智谱', '月之暗面', '阶跃星辰', 'MiniMax',  # minimax 是可以正确定位到稀宇科技的
-                         '零一万物',):
-        print(f'parsing Company(name={company_name})')
+    with open(pathlib.Path(__file__).parent / 'config.yaml', 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+        companies = config['companies']
+        keys = [key.strip() for key in config['fields']['table']]
+
+    logging.info({"companies": companies, "keys": keys})
+
+    chrome_options = Options()
+    chrome_options.add_argument(f"user-data-dir=out/chrome-user-data-dir")
+    chrome_options.add_argument("profile-directory=Automation")
+
+    driver = webdriver.Chrome(options=chrome_options)
+    # 任意初始化一家公司网站
+    driver.get('https://www.qcc.com/firm/85d0292125761b813b2408a8138f51ca.html')
+
+    for company_name in companies:
+        logging.info(f'parsing Company(name={company_name})')
         search_and_click_first_result(company_name)
         parse_company(driver)
 
