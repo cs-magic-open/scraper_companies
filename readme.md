@@ -6,7 +6,9 @@
 
 配置： [config.yaml](config.yaml)
 
-运行：`python main.py`
+运行：
+- 下载数据：`main_dump_data.py`
+- 分析数据：`main_read_data.ipynb`
 
 ## 反爬虫注意
 

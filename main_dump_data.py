@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import re
 import time
 
 import yaml
@@ -8,7 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from apps.scraper_companies.core.orm import Company
 
@@ -38,9 +39,12 @@ def parse_company():
 
     values = [find_next_td_content(key) for key in keys]
     table_dict = dict(zip(keys, values))
-    model = Company(**table_dict)
-    logging.info(model)
-    return model
+    url = driver.current_url
+    id = re.search("https://www.qcc.com/firm/(.*?).html", url).group(1)
+    name = driver.find_element(By.TAG_NAME, "h1").text
+    data = {"id": id, "name": name, **table_dict}
+    logging.info(data)
+    return data
 
 
 def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
@@ -70,20 +74,13 @@ def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
         # 等待新的结果出现
         first_result = WebDriverWait(driver, wait_ele).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "a.list-group-item")))
-        logging.debug(f"新的搜索结果已出现: {first_result.text}")
-
-        # 点击第一个结果
+        company_name = first_result.text
+        logging.debug(f"访问公司: {company_name}")
         first_result.click()
-        logging.debug("已点击第一个搜索结果")
+        return company_name
+
     except Exception as e:
         logging.error(f"An error occurred: {e}")
-
-
-def crawl_companies():
-    for company_name in companies:
-        logging.info(f'parsing Company(name={company_name})')
-        search_and_click_first_result(company_name)
-        yield parse_company()
 
 
 if __name__ == '__main__':
@@ -91,10 +88,10 @@ if __name__ == '__main__':
 
     with open(pathlib.Path(__file__).parent / 'config.yaml', 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
-        companies = config['companies']
+        company_names_to_search = config['companies']
         keys = [key.strip() for key in config['fields']['table']]
 
-    logging.debug({"companies": companies, "keys": keys})
+    logging.debug({"companies": company_names_to_search, "keys": keys})
 
     chrome_options = Options()
 
@@ -122,12 +119,21 @@ if __name__ == '__main__':
     engine = create_engine("sqlite:///database.db")
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        for model in crawl_companies():
-            try:
-                logging.info(f"adding model: {model}")
-                session.add(model)
-            except Exception as e:
-                logging.error(f"An error occurred: {e}")
-    session.commit()
+        for search_name in company_names_to_search:
+            logging.info(f'parsing Company(search_name={search_name})')
+            statement = select(Company).where(Company.search_name == search_name)
+            result = session.exec(statement).first()
+            if result:
+                logging.warning("skipped")
+            else:
+                company_name = search_and_click_first_result(search_name)
+                try:
+                    data = parse_company()
+                    model = Company(search_name=search_name, company_name=company_name, **data)
+                    session.add(model)
+                    logging.info("added")
+                except Exception as e:
+                    logging.error(f"An error occurred: {e}")
+        session.commit()
 
     input("Press Enter to close the browser...")

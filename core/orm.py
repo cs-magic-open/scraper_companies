@@ -1,3 +1,4 @@
+from asyncio import Future
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -10,9 +11,12 @@ class Company(SQLModel, table=True):
         return f'https://www.qcc.com/firm/{self.id}.html'
 
     id: str = Field(primary_key=True)
+    # 法定标准名称，也是搜索候选名称，区别于表格中解析的待清洗的名称
+    name: str = Field(index=True, description="法定标准名称")
+    # 用户搜索的名称
+    search_name: Optional[str] = Field(default=None, index=True)
 
-    公司名称: str
-    公司法人: str
+    # table fields
     统一社会信用代码: str
     企业名称: str
     法定代表人: str
