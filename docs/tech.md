@@ -6,4 +6,4 @@
 
 第二等级风控：
 
-![img.png](docs/ban-vip.png)
+![img.png](./ban-vip.png)
