@@ -8,37 +8,39 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from sqlmodel import SQLModel, Session, create_engine
+
+from apps.scraper_companies.core.orm import Company
 
 
 def is_document_idle():
     return driver.execute_script("return document.readyState") == "complete"
 
 
-def find_next_td_content(text_a):
-    # 使用XPath查找包含文本A的td元素
-    xpath = f"//td[contains(., '{text_a}')]"
+def parse_company():
+    def find_next_td_content(text_a):
+        # 使用XPath查找包含文本A的td元素
+        xpath = f"//td[contains(., '{text_a}')]"
 
-    try:
-        # 等待元素出现
-        td_element = (WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath))))
+        try:
+            # 等待元素出现
+            td_element = (WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath))))
 
-        # 获取下一个td元素
-        next_td = td_element.find_element(By.XPATH, "following-sibling::td[1]")
+            # 获取下一个td元素
+            next_td = td_element.find_element(By.XPATH, "following-sibling::td[1]")
 
-        # 返回下一个td元素的文本内容
-        return next_td.text
+            # 返回下一个td元素的文本内容
+            return next_td.text
 
-    except Exception as e:
-        logging.error(f"Error: {e}")
-        return None
+        except Exception as e:
+            logging.error(f"Error: {e}")
+            return None
 
-
-def parse_company(driver):
     values = [find_next_td_content(key) for key in keys]
     table_dict = dict(zip(keys, values))
-    result = {"url": driver.current_url, **table_dict}
-    logging.info(result)
-    return result
+    model = Company(**table_dict)
+    logging.info(model)
+    return model
 
 
 def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
@@ -56,25 +58,32 @@ def search_and_click_first_result(text_a, wait_input=.5, wait_ele=3):
         try:
             # 首先检查是否已存在结果
             first_result = driver.find_element(By.CSS_SELECTOR, "a.list-group-item")
-            logging.info("检测到已存在的结果,等待它被移除并重新挂载")
+            logging.debug("检测到已存在的结果,等待它被移除并重新挂载")
 
             # 等待当前元素变为stale(被移除)
             WebDriverWait(driver, wait_ele).until(EC.staleness_of(first_result))
-            logging.info("现有结果已被移除")
+            logging.debug("现有结果已被移除")
 
         except:
-            logging.info("当前没有搜索结果,等待新结果出现")
+            logging.debug("当前没有搜索结果,等待新结果出现")
 
         # 等待新的结果出现
         first_result = WebDriverWait(driver, wait_ele).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "a.list-group-item")))
-        logging.info(f"新的搜索结果已出现: {first_result.text}")
+        logging.debug(f"新的搜索结果已出现: {first_result.text}")
 
         # 点击第一个结果
         first_result.click()
-        logging.info("已点击第一个搜索结果")
+        logging.debug("已点击第一个搜索结果")
     except Exception as e:
         logging.error(f"An error occurred: {e}")
+
+
+def crawl_companies():
+    for company_name in companies:
+        logging.info(f'parsing Company(name={company_name})')
+        search_and_click_first_result(company_name)
+        yield parse_company()
 
 
 if __name__ == '__main__':
@@ -85,7 +94,7 @@ if __name__ == '__main__':
         companies = config['companies']
         keys = [key.strip() for key in config['fields']['table']]
 
-    logging.info({"companies": companies, "keys": keys})
+    logging.debug({"companies": companies, "keys": keys})
 
     chrome_options = Options()
 
@@ -110,9 +119,15 @@ if __name__ == '__main__':
     # 任意初始化一家公司网站
     driver.get('https://www.qcc.com/firm/85d0292125761b813b2408a8138f51ca.html')
 
-    for company_name in companies:
-        logging.info(f'parsing Company(name={company_name})')
-        search_and_click_first_result(company_name)
-        parse_company(driver)
+    engine = create_engine("sqlite:///database.db")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        for model in crawl_companies():
+            try:
+                logging.info(f"adding model: {model}")
+                session.add(model)
+            except Exception as e:
+                logging.error(f"An error occurred: {e}")
+    session.commit()
 
     input("Press Enter to close the browser...")
